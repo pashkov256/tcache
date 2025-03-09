@@ -1,0 +1,1 @@
+tcache is a high—performance and easy-to-use cache with TTL (Time To Live) support for Go.
