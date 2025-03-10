@@ -1,8 +1,7 @@
 ## tcache is a high performance and easy-to-use cache with TTL (Time To Live)
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/pashkov256/tcache/v1.svg)](https://pkg.go.dev/github.com/pashkov256/tcache)
 
----
+[![Go Reference](https://pkg.go.dev/badge/github.com/pashkov256/tcache/v1.svg)](https://pkg.go.dev/github.com/pashkov256/tcache)
 
 ## Features
 - 🚀 **Simple API**: Easy-to-use methods for managing cache items.
@@ -32,7 +31,7 @@ import (
 )
 
 func main() {
-   // Create a new cache with string keys and integer values
+   	// Create a new cache with string keys and integer values
 	cache := tcache.New[string, int]()
 }
 ```
