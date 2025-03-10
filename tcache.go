@@ -6,13 +6,41 @@ import (
 )
 
 type Cache[K comparable, V any] struct {
-	items map[K]*Item[V]
-	mu    sync.RWMutex
+	items    map[K]*Item[V]
+	mu       sync.RWMutex
+	onInsert func(K, V)
+	onUpdate func(K, V, V)
+	onDelete func(K, V)
+	onExpire func(K, V)
 }
 
 type Item[V any] struct {
 	value V
 	timer *time.Timer
+}
+
+func (c *Cache[K, V]) OnInsert(fn func(K, V)) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.onInsert = fn
+}
+
+func (c *Cache[K, V]) OnUpdate(fn func(K, V, V)) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.onUpdate = fn
+}
+
+func (c *Cache[K, V]) OnDelete(fn func(K, V)) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.onDelete = fn
+}
+
+func (c *Cache[K, V]) OnExpire(fn func(K, V)) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.onExpire = fn
 }
 
 func (c *Cache[K, V]) Len() int {
@@ -36,6 +64,9 @@ func (c *Cache[K, V]) Refresh(key K, ttl time.Duration) {
 			item.timer.Stop()
 		}
 		item.timer = time.AfterFunc(ttl, func() {
+			if c.onDelete != nil {
+				c.onDelete(key, item.value)
+			}
 			c.Delete(key)
 		})
 	}
@@ -44,10 +75,36 @@ func (c *Cache[K, V]) Refresh(key K, ttl time.Duration) {
 func (c *Cache[K, V]) Update(key K, value V) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.items[key].timer != nil {
-		c.items[key].timer.Stop()
+
+	item := c.items[key]
+	c.items[key] = &Item[V]{value: value, timer: item.timer}
+	if c.onUpdate != nil {
+		c.onUpdate(key, value, item.value)
 	}
-	c.items[key] = &Item[V]{value: value, timer: c.items[key].timer}
+}
+func (c *Cache[K, V]) UpdateWithTTL(key K, value V, ttl time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	item := c.items[key]
+	if item.timer != nil {
+		item.timer.Stop()
+	}
+
+	var timer *time.Timer
+	if ttl > 0 {
+		timer = time.AfterFunc(ttl, func() {
+			if c.onExpire != nil {
+				c.onExpire(key, value)
+			}
+			c.Delete(key)
+		})
+	}
+
+	c.items[key] = &Item[V]{value: value, timer: timer}
+	if c.onUpdate != nil {
+		c.onUpdate(key, value, item.value)
+	}
 }
 
 func (c *Cache[K, V]) Delete(key K) {
@@ -58,7 +115,12 @@ func (c *Cache[K, V]) Delete(key K) {
 		if item.timer != nil {
 			item.timer.Stop()
 		}
+
 		delete(c.items, key)
+
+		if c.onDelete != nil {
+			c.onDelete(key, item.value)
+		}
 	}
 }
 
@@ -133,6 +195,9 @@ func (c *Cache[K, V]) Set(key K, value V) {
 		value: value,
 		timer: nil,
 	}
+	if c.onInsert != nil {
+		c.onInsert(key, value)
+	}
 }
 
 func (c *Cache[K, V]) SetWithTTL(key K, value V, ttl time.Duration) {
@@ -147,13 +212,20 @@ func (c *Cache[K, V]) SetWithTTL(key K, value V, ttl time.Duration) {
 
 	if ttl > 0 {
 		timer = time.AfterFunc(ttl, func() {
+			if c.onExpire != nil {
+				c.onExpire(key, value)
+			}
 			c.Delete(key)
+
 		})
 	}
 
 	c.items[key] = &Item[V]{
 		value: value,
 		timer: timer,
+	}
+	if c.onInsert != nil {
+		c.onInsert(key, value)
 	}
 }
 
