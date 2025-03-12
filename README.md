@@ -1,17 +1,18 @@
-## tcache is a high performance and easy-to-use cache with TTL (Time To Live)
-
+# tcache - high Performance Cache with TTL and LRU
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/pashkov256/tcache/v1.svg)](https://pkg.go.dev/github.com/pashkov256/tcache)
 
 ## Features
 - 🚀 **Simple API**: Easy-to-use methods for managing cache items.
 - 🕒 **TTL Support**: Automatically expire items after a specified duration.
+- ♻️ **LRU (Least Recently Used) Eviction**: Automatically removes the least recently used items when capacity is exceeded.
 - 🔒 **Thread-Safe**: Safe for concurrent use across multiple goroutines.
 - 🧩 **Generics Support**: Works with any key and value types.
-- 🛠️ **Flexible**: Manually refresh TTL, update values, or delete items.
+- 🔔 **Event Hooks**: Supports callbacks on insert, update, delete, and expiration.
+
 
 ## Installation
-```
+```sh
 go get github.com/pashkov256/tcache
 ```
 
@@ -31,8 +32,8 @@ import (
 )
 
 func main() {
-   	// Create a new cache with string keys and integer values
-	cache := tcache.New[string, int]()
+    // Create a new cache with string keys and integer values, capacity 100
+    cache := tcache.New[string, int](100)
 }
 ```
 
@@ -97,6 +98,17 @@ size := cache.Len()
 fmt.Println("Number of items in cache:", size)
 ```
 
+## LRU Eviction
+```go
+cache := tcache.New(2)  // Capacity of 2
+cache.Set("a", 1)
+cache.Set("b", 2)
+cache.Set("c", 3) // "a" is evicted because it is the least recently used
+
+fmt.Println(cache.Has("a")) // false
+fmt.Println(cache.Has("b")) // true
+fmt.Println(cache.Has("c")) // true
+```
 
 ## Getting  All Keys,Values,Elements
 Get all keys or values stored in the cache:
@@ -110,4 +122,38 @@ fmt.Println("Values in cache:", values)
 
 elements := cache.GetAllItems()
 fmt.Println("Map in cache:", elements)
+```
+
+## Event Hooks (OnInsert, OnUpdate, OnDelete, OnExpire)
+`tcache` supports event hooks to execute custom logic when items are inserted, updated, deleted, or expired.
+```go
+
+// OnInsert: Called when an item is added
+cache.OnInsert(func(key string, value int) {
+    fmt.Printf("Inserted: %s -> %d\n", key, value)
+})
+
+// OnUpdate: Called when an item is updated
+cache.OnUpdate(func(key string, oldValue, newValue int) {
+    fmt.Printf("Updated: %s from %d to %d\n", key, oldValue, newValue)
+})
+
+// OnDelete: Called when an item is deleted
+cache.OnDelete(func(key string, value int) {
+    fmt.Printf("Deleted: %s -> %d\n", key, value)
+})
+
+// OnExpire: Called when an item expires
+cache.OnExpire(func(key string, value int) {
+    fmt.Printf("Expired: %s -> %d\n", key, value)
+})
+
+// Adding and modifying items to trigger events
+cache.Set("example", 123)
+cache.Update("example", 456)
+cache.Delete("example")
+cache.SetWithTTL("temp", 999, 2*time.Second)
+
+// Wait to see expiration event
+ time.Sleep(3 * time.Second)
 ```
