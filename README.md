@@ -37,6 +37,7 @@ func main() {
 }
 ```
 
+
 ## Adding Items
 You can add items to the cache with or without a TTL:
 
@@ -98,6 +99,7 @@ size := cache.Len()
 fmt.Println("Number of items in cache:", size)
 ```
 
+
 ## LRU Eviction
 ```go
 cache := tcache.New(2)  // Capacity of 2
@@ -108,6 +110,12 @@ cache.Set("c", 3) // "a" is evicted because it is the least recently used
 fmt.Println(cache.Has("a")) // false
 fmt.Println(cache.Has("b")) // true
 fmt.Println(cache.Has("c")) // true
+```
+
+## Change capacity
+If the cache is full after installing capacity, the most unused items are automatically deleted.
+```go
+cache.SetCapacity(2)
 ```
 
 ## Getting  All Keys,Values,Elements
@@ -125,7 +133,7 @@ fmt.Println("Map in cache:", elements)
 ```
 
 ## Event Hooks (OnInsert, OnUpdate, OnDelete, OnExpire)
-`tcache` supports event hooks to execute custom logic when items are inserted, updated, deleted, or expired.
+`tcache` supports event hooks to execute custom logic when items are inserted, updated, deleted, expired or evict.
 ```go
 
 // OnInsert: Called when an item is added
@@ -146,6 +154,11 @@ cache.OnDelete(func(key string, value int) {
 // OnExpire: Called when an item expires
 cache.OnExpire(func(key string, value int) {
     fmt.Printf("Expired: %s -> %d\n", key, value)
+})
+
+// OnEvict: Called when the cache is full and the most unused item is deleted.
+cache.OnEvict(func(key string, value int) {
+    fmt.Printf("Evict: %s -> %d\n", key, value)
 })
 
 // Adding and modifying items to trigger events
