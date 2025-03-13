@@ -2,10 +2,15 @@ package tcache
 
 import (
 	"container/list"
-	"fmt"
 	"sync"
 	"time"
 )
+
+func (c *Cache[K, V]) OnEvict(fn func(K, V)) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.onEvict = fn
+}
 
 func (c *Cache[K, V]) OnInsert(fn func(K, V)) {
 	c.mu.Lock()
@@ -42,6 +47,22 @@ func (c *Cache[K, V]) Has(key K) (exists bool) {
 	defer c.mu.RUnlock()
 	_, exists = c.items[key]
 	return exists
+}
+
+func (c *Cache[K, V]) SetCapacity(capacity int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.capacity = capacity
+	for c.list.Len() > c.capacity {
+		backItem := c.list.Back()
+		if backItem != nil {
+			delete(c.items, backItem.Value.(*Item[K, V]).key)
+			c.list.Remove(c.list.Back())
+			if c.onEvict != nil {
+				c.onEvict(backItem.Value.(*Item[K, V]).key, backItem.Value.(*Item[K, V]).value)
+			}
+		}
+	}
 }
 
 func (c *Cache[K, V]) Refresh(key K, ttl time.Duration) {
@@ -191,12 +212,14 @@ func (c *Cache[K, V]) Set(key K, value V) {
 		c.list.MoveToFront(item)
 	}
 
-	fmt.Println()
 	if c.list.Len() >= c.capacity {
 		backItem := c.list.Back()
 		if backItem != nil {
 			delete(c.items, backItem.Value.(*Item[K, V]).key)
 			c.list.Remove(backItem)
+			if c.onEvict != nil {
+				c.onEvict(backItem.Value.(*Item[K, V]).key, backItem.Value.(*Item[K, V]).value)
+			}
 		}
 	}
 	newItem := &Item[K, V]{key: key, value: value}
@@ -231,14 +254,6 @@ func (c *Cache[K, V]) SetWithTTL(key K, value V, ttl time.Duration) {
 	}
 
 	if c.list.Len() >= c.capacity {
-		println("\nпревысили cap. Удаляется ", c.list.Back().Value.(*Item[K, V]).key)
-		if c.list.Back().Value.(*Item[K, V]).timer != nil {
-			c.list.Back().Value.(*Item[K, V]).timer.Stop()
-		}
-		delete(c.items, key)
-		c.list.Remove(c.list.Back())
-	}
-	if c.list.Len() >= c.capacity {
 		backItem := c.list.Back()
 		if backItem != nil {
 			if backItem.Value.(*Item[K, V]).timer != nil {
@@ -246,6 +261,9 @@ func (c *Cache[K, V]) SetWithTTL(key K, value V, ttl time.Duration) {
 			}
 			delete(c.items, backItem.Value.(*Item[K, V]).key)
 			c.list.Remove(backItem)
+			if c.onEvict != nil {
+				c.onEvict(backItem.Value.(*Item[K, V]).key, backItem.Value.(*Item[K, V]).value)
+			}
 		}
 
 	}
@@ -274,6 +292,7 @@ type Cache[K comparable, V any] struct {
 	onUpdate func(K, V, V)
 	onDelete func(K, V)
 	onExpire func(K, V)
+	onEvict  func(K, V)
 }
 
 type Item[K comparable, V any] struct {
