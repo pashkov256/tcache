@@ -1,6 +1,6 @@
 # tcache - high Performance Cache with TTL and LRU
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/pashkov256/tcache/v1.svg)](https://pkg.go.dev/github.com/pashkov256/tcache)
+[![Go Reference](https://pkg.go.dev/badge/github.com/pashkov256/tcache/v1.svg)](https://pkg.go.dev/github.com/pashkov256/tcache/v2)
 
 ## Features
 - 🚀 **Simple API**: Easy-to-use methods for managing cache items.
@@ -13,7 +13,7 @@
 
 ## Installation
 ```sh
-go get github.com/pashkov256/tcache
+go get github.com/pashkov256/tcache/v2
 ```
 
 ## Usage
@@ -28,7 +28,7 @@ package main
 import (
     "fmt"
     "time"
-    "github.com/pashkov256/tcache"
+    "github.com/pashkov256/tcache/v2"
 )
 
 func main() {
