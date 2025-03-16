@@ -141,6 +141,12 @@ cache.Range(func(k string, v int) bool {
 })
 ```
 
+## SizeInBytes  
+Method for estimating the total cache size in bytes. This can be useful for monitoring memory usage.
+```go
+cache.SizeInBytes()
+```
+
 ## Event Hooks (OnInsert, OnUpdate, OnDelete, OnExpire)
 `tcache` supports event hooks to execute custom logic when items are inserted, updated, deleted, expired or evict.
 ```go

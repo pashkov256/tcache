@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"sync"
 	"time"
+	"unsafe"
 )
 
 func (c *Cache[K, V]) OnEvict(fn func(K, V)) {
@@ -284,6 +285,18 @@ func (c *Cache[K, V]) SetWithTTL(key K, value V, ttl time.Duration) {
 	if c.onInsert != nil {
 		c.onInsert(key, value)
 	}
+}
+
+func (c *Cache[K, V]) SizeInBytes() uint64 {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	var size uint64
+
+	for _, items := range c.items {
+		size += uint64(unsafe.Sizeof(items.Value.(*Item[K, V]).value))
+	}
+
+	return size
 }
 
 func New[K comparable, V any](capacity int) *Cache[K, V] {
