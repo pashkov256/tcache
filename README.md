@@ -132,6 +132,15 @@ elements := cache.GetAllItems()
 fmt.Println("Map in cache:", elements)
 ```
 
+## Range 
+Method that will allow iterating over all cache items
+```go
+cache.Range(func(k string, v int) bool {
+	fmt.Println(k, v)
+	return true
+})
+```
+
 ## Event Hooks (OnInsert, OnUpdate, OnDelete, OnExpire)
 `tcache` supports event hooks to execute custom logic when items are inserted, updated, deleted, expired or evict.
 ```go

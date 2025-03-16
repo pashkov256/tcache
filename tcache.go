@@ -230,6 +230,17 @@ func (c *Cache[K, V]) Set(key K, value V) {
 	}
 }
 
+func (c *Cache[K, V]) Range(fn func(K, V) bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for key, item := range c.items {
+		if !fn(key, item.Value.(*Item[K, V]).value) {
+			break
+		}
+	}
+}
+
 func (c *Cache[K, V]) SetWithTTL(key K, value V, ttl time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
