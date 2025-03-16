@@ -2,6 +2,8 @@ package tcache
 
 import (
 	"container/list"
+	"encoding/json"
+	"os"
 	"sync"
 	"time"
 	"unsafe"
@@ -297,6 +299,24 @@ func (c *Cache[K, V]) SizeInBytes() uint64 {
 	}
 
 	return size
+}
+
+func (c *Cache[K, V]) ExportToFile(filename, exp string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	itemsMap := make(map[K]V, len(c.items))
+
+	for _, item := range c.items {
+		itemTyped := item.Value.(*Item[K, V])
+		itemsMap[itemTyped.key] = itemTyped.value
+	}
+
+	data, err := json.Marshal(itemsMap)
+
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filename+exp, data, 0644)
 }
 
 func New[K comparable, V any](capacity int) *Cache[K, V] {

@@ -147,6 +147,12 @@ Method for estimating the total cache size in bytes. This can be useful for moni
 cache.SizeInBytes()
 ```
 
+## ExportToFile  
+Methods for exporting the current cache state to a file and importing from a file.
+```go
+cache.ExportToFile("cache_data", ".json")
+```
+
 ## Event Hooks (OnInsert, OnUpdate, OnDelete, OnExpire)
 `tcache` supports event hooks to execute custom logic when items are inserted, updated, deleted, expired or evict.
 ```go
