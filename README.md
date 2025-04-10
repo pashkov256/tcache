@@ -153,6 +153,21 @@ Methods for exporting the current cache state to a file and importing from a fil
 cache.ExportToFile("cache_data", ".json")
 ```
 
+## OnWatch 
+You can track which operations are taking place with an item in the cache `UPDATE`,`DELETE`,`EVICT`
+```go
+	cache.OnWatch("your_key", func(key string, op tcache.Operation, oldVal int, newVal int) {
+		switch op {
+		case tcache.UPDATE:
+			fmt.Printf("Key '%s' UPDATE from %#v to %v\n", key, oldVal, newVal)
+		case tcache.DELETE:
+			fmt.Printf("Key '%s' was DELETED (had value %d)\n", key, oldVal)
+		case tcache.EVICT:
+			fmt.Printf("Key '%s' was EVICTED (had value %#v)\n", key, oldVal)
+		}
+	})
+```
+
 ## Event Hooks (OnInsert, OnUpdate, OnDelete, OnExpire)
 `tcache` supports event hooks to execute custom logic when items are inserted, updated, deleted, expired or evict.
 ```go
