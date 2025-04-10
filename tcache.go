@@ -139,6 +139,11 @@ func (c *Cache[K, V]) Delete(key K) {
 		if c.onDelete != nil {
 			c.onDelete(key, item.Value.(*Item[K, V]).value)
 		}
+
+		if item.Value.(*Item[K, V]).onWatch != nil {
+			item.Value.(*Item[K, V]).onWatch(key, DELETE, item.Value.(*Item[K, V]).value, item.Value.(*Item[K, V]).value)
+		}
+
 	}
 }
 
@@ -207,8 +212,8 @@ func (c *Cache[K, V]) Get(key K) (V, bool) {
 func (c *Cache[K, V]) Set(key K, value V) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
-	if item, exists := c.items[key]; exists {
+	item, exists := c.items[key]
+	if exists {
 		if item.Value.(*Item[K, V]).timer != nil {
 			item.Value.(*Item[K, V]).timer.Stop()
 		}
@@ -223,10 +228,27 @@ func (c *Cache[K, V]) Set(key K, value V) {
 			if c.onEvict != nil {
 				c.onEvict(backItem.Value.(*Item[K, V]).key, backItem.Value.(*Item[K, V]).value)
 			}
+			if exists {
+				if item.Value.(*Item[K, V]).onWatch != nil {
+					item.Value.(*Item[K, V]).onWatch(key, EVICT, value, value)
+				}
+			}
 		}
 	}
-	newItem := &Item[K, V]{key: key, value: value}
+
+	var newItem *Item[K, V]
+	if exists {
+		if item.Value.(*Item[K, V]).onWatch != nil {
+			newItem = &Item[K, V]{value: value, key: key, onWatch: item.Value.(*Item[K, V]).onWatch}
+		}
+	} else {
+		newItem = &Item[K, V]{value: value, key: key}
+	}
+
 	c.items[key] = c.list.PushFront(newItem)
+	if c.items[key].Value.(*Item[K, V]).onWatch != nil {
+		item.Value.(*Item[K, V]).onWatch(key, UPDATE, item.Value.(*Item[K, V]).value, newItem.value)
+	}
 
 	if c.onInsert != nil {
 		c.onInsert(key, value)
@@ -252,6 +274,8 @@ func (c *Cache[K, V]) SetWithTTL(key K, value V, ttl time.Duration) {
 	if exists {
 		item.Value.(*Item[K, V]).timer.Stop()
 		c.list.MoveToFront(item)
+	} else {
+
 	}
 
 	var timer *time.Timer
@@ -278,11 +302,28 @@ func (c *Cache[K, V]) SetWithTTL(key K, value V, ttl time.Duration) {
 			if c.onEvict != nil {
 				c.onEvict(backItem.Value.(*Item[K, V]).key, backItem.Value.(*Item[K, V]).value)
 			}
+			if exists {
+				if item.Value.(*Item[K, V]).onWatch != nil {
+					item.Value.(*Item[K, V]).onWatch(key, EVICT, value, value)
+				}
+			}
+
 		}
 
 	}
-	newItem := &Item[K, V]{value: value, key: key, timer: timer}
+	var newItem *Item[K, V]
+	if exists {
+		if item.Value.(*Item[K, V]).onWatch != nil {
+			newItem = &Item[K, V]{value: value, key: key, timer: timer, onWatch: item.Value.(*Item[K, V]).onWatch}
+		}
+	} else {
+		newItem = &Item[K, V]{value: value, key: key, timer: timer}
+	}
+
 	c.items[key] = c.list.PushFront(newItem)
+	if c.items[key].Value.(*Item[K, V]).onWatch != nil {
+		item.Value.(*Item[K, V]).onWatch(key, UPDATE, item.Value.(*Item[K, V]).value, newItem.value)
+	}
 
 	if c.onInsert != nil {
 		c.onInsert(key, value)
@@ -327,6 +368,19 @@ func New[K comparable, V any](capacity int) *Cache[K, V] {
 	}
 }
 
+func (c *Cache[K, V]) OnWatch(key K, fn func(key K, op Operation, oldValue V, newValue V)) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if item, exists := c.items[key]; exists {
+		item.Value.(*Item[K, V]).onWatch = fn
+
+	} else {
+		newItem := &Item[K, V]{key: key, onWatch: fn}
+		c.items[key] = c.list.PushFront(newItem)
+	}
+}
+
 type Cache[K comparable, V any] struct {
 	items    map[K]*list.Element
 	list     *list.List
@@ -340,7 +394,18 @@ type Cache[K comparable, V any] struct {
 }
 
 type Item[K comparable, V any] struct {
-	key   K
-	value V
-	timer *time.Timer
+	key         K
+	value       V
+	timer       *time.Timer
+	onWatch, fn func(K, Operation, V, V)
 }
+
+type Operation uint8
+
+const (
+	INSERT Operation = iota
+	UPDATE
+	DELETE
+	EVICT
+	EXPIRE
+)
