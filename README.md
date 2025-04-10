@@ -1,6 +1,7 @@
 # tcache - high Performance Cache with TTL and LRU
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/pashkov256/tcache/v1.svg)](https://pkg.go.dev/github.com/pashkov256/tcache/v2)
+![code helpers](https://www.codetriage.com/pashkov256/tcache/badges/users.svg)
 
 ## Features
 - 🚀 **Simple API**: Easy-to-use methods for managing cache items.
