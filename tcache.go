@@ -325,7 +325,7 @@ func (c *Cache[K, V]) SetWithTTL(key K, value V, ttl time.Duration) {
 			newItem = &Item[K, V]{value: value, key: key, timer: timer, onWatch: item.Value.(*Item[K, V]).onWatch}
 		}
 	} else {
-		newItem = &Item[K, V]{value: value, key: key, timer: timer}
+		newItem = &Item[K, V]{value: value, key: key, timer: timer, ttl: ttl}
 	}
 
 	c.items[key] = c.list.PushFront(newItem)
