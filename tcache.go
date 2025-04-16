@@ -72,16 +72,22 @@ func (c *Cache[K, V]) Refresh(key K, ttl time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if item, exists := c.items[key]; exists {
-		if item.Value.(*Item[K, V]).timer != nil {
-			item.Value.(*Item[K, V]).timer.Stop()
+		// stop timer if it exists
+		if timer := item.Value.(*Item[K, V]).timer; timer != nil {
+			timer.Stop()
 		}
-		item.Value.(*Item[K, V]).timer = time.AfterFunc(ttl, func() {
-			if c.onDelete != nil {
-				c.onDelete(key, item.Value.(*Item[K, V]).value)
-			}
-			c.Delete(key)
-			c.list.Remove(item)
-		})
+
+		if ttl > 0 {
+			item.Value.(*Item[K, V]).timer = time.AfterFunc(ttl, func() {
+				if c.onDelete != nil {
+					c.onDelete(key, item.Value.(*Item[K, V]).value)
+				}
+				c.Delete(key)
+				c.list.Remove(item)
+			})
+		}
+
+		item.Value.(*Item[K, V]).ttl = ttl
 	}
 }
 func (c *Cache[K, V]) Update(key K, value V) {
@@ -198,15 +204,17 @@ func (c *Cache[K, V]) GetAllKeys() []K {
 
 func (c *Cache[K, V]) Get(key K) (V, bool) {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	if item, exists := c.items[key]; exists {
-		c.list.MoveToFront(item)
-		return item.Value.(*Item[K, V]).value, true
+	item, exists := c.items[key]
+	if !exists {
+		c.mu.RUnlock()
+		var zero V
+		return zero, false
 	}
 
-	var zero V
-	return zero, false
+	c.mu.RUnlock()
+	c.Refresh(key, item.Value.(*Item[K, V]).ttl)
+	c.list.MoveToFront(item)
+	return item.Value.(*Item[K, V]).value, true
 }
 
 func (c *Cache[K, V]) Set(key K, value V) {
@@ -397,6 +405,7 @@ type Item[K comparable, V any] struct {
 	key         K
 	value       V
 	timer       *time.Timer
+	ttl         time.Duration
 	onWatch, fn func(K, Operation, V, V)
 }
 
